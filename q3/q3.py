@@ -1,4 +1,3 @@
-
 import numpy as np
 import csv
 import itertools, functools, operator
