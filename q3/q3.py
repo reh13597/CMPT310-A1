@@ -84,7 +84,7 @@ def ridge_obj(x, y, th, th0, lam):
 def d_lin_reg_th(x, th, th0):
     """ Returns the gradient of lin_reg(x, th, th0) with respect to th
 
-    Note that for array (rather than vector) x, we get a d x n 
+    Note that for array (rather than vector) x, we get a d x n
     result. That is to say, this function produces the gradient for
     each data point i ... n, with respect to each theta, j ... d.
 
@@ -94,7 +94,9 @@ def d_lin_reg_th(x, th, th0):
     [[1.0], [1.0]]
     """
     #Your code here [1]
-    pass
+    # since lin_reg is th1 * x1 + th2 * x2 + ... + th0, the gradient of lin_reg
+    # with respect to th is the derivative of lin_reg, which is just x
+    return x
 
 def d_square_loss_th(x, y, th, th0):
     """Returns the gradient of square_loss(x, y, th, th0) with respect to
@@ -115,11 +117,13 @@ def d_square_loss_th(x, y, th, th0):
     [[4.1], [4.1]]
     """
     #Your code here [2]
-    pass
+    # the gradient of square_loss with respect to th is the derivative of
+    # square_loss times the derivative of lin_reg (chain rule)
+    return -2 * (y - lin_reg(x, th, th0)) * d_lin_reg_th(x, th, th0)
 
 def d_mean_square_loss_th(x, y, th, th0):
     """ Returns the gradient of mean_square_loss(x, y, th, th0) with
-        respect to th.  
+        respect to th.
 
         Note: It should be a one-line expression that uses d_square_loss_th.
 
@@ -130,7 +134,9 @@ def d_mean_square_loss_th(x, y, th, th0):
     [[4.1], [4.1]]
     """
     #Your code here [3]
-    pass
+    # the gradient of mean_square_loss with respect to th is just the average of
+    # the gradient of square_loss with respect to th
+    return np.mean(d_square_loss_th(x, y, th, th0), axis = 1, keepdims = True)
 
 def d_lin_reg_th0(x, th, th0):
     """ Returns the gradient of lin_reg(x, th, th0) with respect to th0.
@@ -141,7 +147,10 @@ def d_lin_reg_th0(x, th, th0):
     [[1.0, 1.0, 1.0, 1.0]]
     """
     #Your code here [4]
-    pass
+    # since lin_reg is th1 * x1 + th2 * x2 + ... + th0, the gradient of lin_reg
+    # with respect to th0 is the derivative of lin_reg with respect to th0,
+    # which is just 1
+    return np.ones((1, x.shape[1]))
 
 def d_square_loss_th0(x, y, th, th0):
     """ Returns the gradient of square_loss(x, y, th, th0) with
@@ -153,8 +162,11 @@ def d_square_loss_th0(x, y, th, th0):
     >>> d_square_loss_th0(X, Y, th, th0).tolist()
     [[4.1, 3.6999999999999993, 4.5, 3.9000000000000004]]
     """
-    #Your code here [5] 
-    pass
+    #Your code here [5]
+    # the gradient of square_loss with respect to th0 is the derivative of
+    # square_loss times the derivative of lin_reg with respect to th0
+    # (chain rule), which is just 1
+    return -2 * (y - lin_reg(x, th, th0))
 
 def d_mean_square_loss_th0(x, y, th, th0):
     """ Returns the gradient of mean_square_loss(x, y, th, th0) with
@@ -167,7 +179,9 @@ def d_mean_square_loss_th0(x, y, th, th0):
     [[4.05]]
     """
     #Your code here [6]
-    pass
+    # the gradient of mean_square_loss with respect to th0 is just the average of
+    # the gradient of square_loss with respect to th0
+    return np.mean(d_square_loss_th0(x, y, th, th0), axis = 1, keepdims = True)
 
 def d_ridge_obj_th(x, y, th, th0, lam):
     """Return the derivative of tghe ridge objective value with respect
@@ -186,7 +200,9 @@ def d_ridge_obj_th(x, y, th, th0, lam):
     [[210.15], [14.05]]
     """
     #Your code here [7]
-    pass
+    # the derivative of the ridge_obj with respect to th is
+    # the gradient of mean_square_loss with respect to th, + 2 * lambda * th
+    return d_mean_square_loss_th(x, y, th, th0) + 2 * lam * th
 
 def d_ridge_obj_th0(x, y, th, th0, lam):
     """Return the derivative of tghe ridge objective value with respect
@@ -205,13 +221,16 @@ def d_ridge_obj_th0(x, y, th, th0, lam):
     [[4.05]]
     """
     #Your code here [8]
-    pass
+    # the derivative of the ridge objective value with respect to th0 is just
+    # the gradient of mean_square_loss with respect to th0, + 0
+    # since th0 isn't included in the regularization term
+    return d_mean_square_loss_th0(x, y, th, th0)
 
 #Concatenates the gradients with respect to theta and theta_0
 def ridge_obj_grad(x, y, th, th0, lam):
     grad_th = d_ridge_obj_th(x, y, th, th0, lam)
     grad_th0 = d_ridge_obj_th0(x, y, th, th0, lam)
-    return np.vstack([grad_th, grad_th0])    
+    return np.vstack([grad_th, grad_th0])
 
 def sgd(X, y, J, dJ, w0, step_size_fn, max_iter):
     """Implements stochastic gradient descent
@@ -244,7 +263,31 @@ def sgd(X, y, J, dJ, w0, step_size_fn, max_iter):
 
     """
     #Your code here [9]
-    pass
+    d, n = X.shape # get the dimensions of X (we only need n)
+
+    w = w0.copy() # get the current weights, use copy to avoid modifying them
+    fs = [] # initialize list of cost values
+    ws = [] # initialize list of weight vectors
+
+    for i in range(max_iter):
+        j = np.random.randint(0, n) # pick a random data point
+
+        Xj = X[:, j:j + 1] # get the single data point
+        yj = y[:, j:j + 1] # get that data point's label
+
+        cost = J(Xj, yj, w) # get the cost of this data point
+        fs.append(cost) # add it to the cost values list
+
+        gradient = dJ(Xj, yj, w) # compute the gradient for this data point
+
+        step_size = step_size_fn(i) # get the step size for this iteration
+
+        w = w - step_size * gradient # update the weights
+
+        ws.append(w.copy()) # add them to the weight vectors list
+                            # use copy to avoid modifying them
+
+    return w, fs, ws
 
 ############################################################
 def num_grad(f):
@@ -269,25 +312,32 @@ def sgdTest():
                       [1.0, 1.0, 1.0, 1.0, 1.0,  1.0,  1.0,  1.0,  1.0,  1.0]])
         y = np.array([[0.4, 0.6, 1.2, 0.1, 0.22, -0.6, -1.5, -0.5, -0.5, 0.0]])
         return X, y
-    
+
     X, y = downwards_line()
-    
+
     def J(Xi, yi, w):
         # translate from (1-augmented X, y, theta) to (separated X, y, th, th0) format
         return float(ridge_obj(Xi[:-1,:], yi, w[:-1,:], w[-1:,:], 0))
-    
+
     def dJ(Xi, yi, w):
         def f(w): return J(Xi, yi, w)
         return num_grad(f)(w)
 
     #Your code here [10]
-    pass
+    w_init = np.zeros((d + 1, 1)) # initialize the weights
+
+    def svm_min_step_size_fn(i): # define the step size function
+        return 0.01 / (i + 1)**0.5
+
+    w, fs, ws = sgd(X, y, J, dJ, w_init, svm_min_step_size_fn, 1000) # run sgd
+
+    return w, fs, ws
 
 ############################################################
 
 def ridge_min(X, y, lam):
     """ Returns th, th0 that minimize the ridge regression objective
-    
+
     Assumes that X is NOT 1-extended. Interfaces to our sgd by 1-extending
     and building corresponding initial weights.
     """
@@ -303,7 +353,7 @@ def ridge_min(X, y, lam):
 
     def dJ(Xj, yj, th):
         return ridge_obj_grad(Xj[:-1,:], yj, th[:-1,:], th[-1:,:], lam)
-    
+
     np.random.seed(0)
     w, fs, ws = sgd(X_extend, y, J, dJ, w_init, svm_min_step_size_fn, 1000)
     return w[:-1,:], w[-1:,:]
@@ -312,15 +362,15 @@ def ridge_min(X, y, lam):
 
 def mul(seq):
     '''
-    Given a list or numpy array of float or int elements, return the product 
-    of all elements in the list/array.  
+    Given a list or numpy array of float or int elements, return the product
+    of all elements in the list/array.
     '''
     return functools.reduce(operator.mul, seq, 1)
 
 def make_polynomial_feature_fun(order):
     '''
     Transform raw features into polynomial features or order 'order'.
-    If raw_features is a d by n numpy array, return a k by n numpy array 
+    If raw_features is a d by n numpy array, return a k by n numpy array
     where k = sum_{i = 0}^order multichoose(d, i) (the number of all possible terms in the polynomial feature or order 'order')
     '''
     def f(raw_features):
@@ -347,8 +397,8 @@ def eval_predictor(X_train, Y_train, X_test, Y_test, lam):
 def xval_learning_alg(X, y, lam, k):
     '''
     Given a learning algorithm and data set, evaluate the learned classifier's score with k-fold
-    cross validation. 
-    
+    cross validation.
+
     learner is a learning algorithm, such as perceptron.
     data, labels = dataset and its labels.
 
@@ -390,8 +440,8 @@ def load_auto_data(path_data):
 
 def std_vals(data, f):
     '''
-    Helper function to be used inside auto_data_and_labels. Returns average and standard deviation of 
-    data's f-th feature. 
+    Helper function to be used inside auto_data_and_labels. Returns average and standard deviation of
+    data's f-th feature.
     >>> data = np.array([[1,2,3,4,5],[6,7,8,9,10]])
     >>> f=0
     >>> std_vals(data, f)
@@ -408,7 +458,7 @@ def std_vals(data, f):
 
 def standard(v, std):
     '''
-    Helper function to be used in auto_data_and_labels. Center v by the 0-th element of std and scale by the 1-st element of std. 
+    Helper function to be used in auto_data_and_labels. Center v by the 0-th element of std and scale by the 1-st element of std.
     >>> data = np.array([1,2,3,4,5])
     >>> standard(data, (3,1))
     [array([-2., -1.,  0.,  1.,  2.])]
@@ -431,7 +481,7 @@ def one_hot(v, entries):
     '''
     Outputs a one hot vector. Helper function to be used in auto_data_and_labels.
     v is the index of the "1" in the one-hot vector.
-    entries is range(k) where k is the length of the desired onehot vector. 
+    entries is range(k) where k is the length of the desired onehot vector.
 
     >>> one_hot(2, range(4))
     [0, 0, 1, 0]
